@@ -10,29 +10,28 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false); // เพิ่ม State สำหรับสลับโหมด Sign In / Sign Up
+  const [isSignUp, setIsSignUp] = useState(false);
 
-  // เช็คตอนเปิดหน้าเว็บ ถ้าล็อกอินอยู่แล้ว ให้ตรวจสอบว่ามี Profile ไหม
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         checkProfileAndRedirect(session.user.id);
       }
     });
-  }, [router]);
+  }, []);
 
-  // ฟังก์ชันแยกทาง: ไป Dashboard หรือ Onboarding?
   async function checkProfileAndRedirect(userId: string) {
     const { data: creator } = await supabase
       .from('creators')
       .select('id')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
+    // บังคับรีเฟรชหน้าเว็บ 1 รอบเพื่อไม่ให้เซสชันค้าง
     if (creator) {
-      router.replace('/dashboard'); // มีข้อมูลแล้ว ไปจัดการสล็อตได้เลย
+      window.location.href = '/dashboard';
     } else {
-      router.replace('/onboarding'); // ยังไม่มีข้อมูล ไปตั้งชื่อ Slug ก่อน
+      window.location.href = '/onboarding';
     }
   }
 
@@ -42,23 +41,23 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      let authResult;
-      
       if (isSignUp) {
-        // สมัครสมาชิกใหม่
-        authResult = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        
+        // ล็อกอินอัตโนมัติถ้า Session ยังไม่มา
+        if (!data.session) {
+          const signInRes = await supabase.auth.signInWithPassword({ email, password });
+          if (signInRes.error) throw signInRes.error;
+          await checkProfileAndRedirect(signInRes.data.user.id);
+        } else {
+          await checkProfileAndRedirect(data.user.id);
+        }
       } else {
-        // ล็อกอินปกติ
-        authResult = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        await checkProfileAndRedirect(data.user.id);
       }
-
-      if (authResult.error) throw authResult.error;
-
-      // ถ้าสำเร็จ ให้เช็คโปรไฟล์ต่อ
-      if (authResult.data.user) {
-        await checkProfileAndRedirect(authResult.data.user.id);
-      }
-
     } catch (err: any) {
       setErrorMsg(err.message || 'Authentication failed.');
     } finally {
@@ -128,10 +127,13 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* ปุ่มสลับโหมด */}
         <div className="text-center mt-4">
           <button 
-            onClick={() => setIsSignUp(!isSignUp)}
+            type="button"
+            onClick={() => {
+                setIsSignUp(!isSignUp);
+                setErrorMsg('');
+            }}
             className="text-xs text-neutral-400 hover:text-white transition-colors"
           >
             {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}

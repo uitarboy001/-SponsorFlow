@@ -16,27 +16,33 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 1. ตรวจสอบว่าล็อกอินอยู่ไหม
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
-        router.replace('/login'); // ถ้ายังไม่ล็อกอิน ให้กลับไปหน้าล็อกอิน
+        router.replace('/login');
       } else {
         setUserId(session.user.id);
       }
     });
   }, [router]);
 
-  // ฟังก์ชันแปลงข้อความธรรมดาให้กลายเป็น Slug แบบอัตโนมัติ (เผื่อผู้ใช้ขี้เกียจพิมพ์)
   const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value;
-    // กรองเอาเฉพาะตัวอักษรภาษาอังกฤษ ตัวเลข และขีดกลาง
     const formattedSlug = rawValue
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, ''); 
     setSlug(formattedSlug);
   };
+
+  // -----------------------------------------
+  // ฟังก์ชันใหม่: เพิ่มปุ่ม Sign Out เพื่อเคลียร์ Session ผี
+  // -----------------------------------------
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    // บังคับเปลี่ยนหน้าด้วย window.location เพื่อเคลียร์แคชให้สะอาดหมดจด
+    window.location.href = '/login'; 
+  }
 
   async function handleOnboardingSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,7 +56,6 @@ export default function OnboardingPage() {
     }
 
     try {
-      // 2. เช็คก่อนว่า Slug นี้มีคนอื่นใช้หรือยัง (เพราะ URL ห้ามซ้ำกัน)
       const { data: existingSlug } = await supabase
         .from('creators')
         .select('slug')
@@ -61,31 +66,27 @@ export default function OnboardingPage() {
         throw new Error('This URL slug is already taken. Please choose another one.');
       }
 
-      // 3. บันทึกข้อมูลลงตาราง creators
       const { error: insertError } = await supabase
         .from('creators')
         .insert({
-          id: userId, // สำคัญมาก! ผูกข้อมูลนี้กับ ID ของบัญชีที่เพิ่งสมัคร
+          id: userId,
           slug: slug,
           newsletter_name: newsletterName,
           tagline: tagline,
-          subscriber_count: 0, // ค่าเริ่มต้น
+          subscriber_count: 0, 
         });
 
       if (insertError) {
-         // จับ Error กรณีเผลอกดซ้ำหรือมีปัญหาเรื่องสิทธิ์
          if (insertError.code === '23505') {
             throw new Error('Profile already exists. Redirecting to dashboard...');
          }
          throw insertError;
       }
 
-      // 4. บันทึกเสร็จ ไปหน้า Dashboard ได้เลย
       router.push('/dashboard');
 
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to save profile. Please try again.');
-      // ถ้า Profile มีอยู่แล้วจริงๆ ให้พากลับ Dashboard
       if (err.message.includes('Profile already exists')) {
           setTimeout(() => router.push('/dashboard'), 1500);
       }
@@ -94,7 +95,6 @@ export default function OnboardingPage() {
     }
   }
 
-  // หน้าจอ Loading รอตรวจสอบ Auth
   if (!userId) {
     return (
       <div className="min-h-screen bg-neutral-950 text-neutral-200 flex items-center justify-center font-mono text-sm">
@@ -104,8 +104,17 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-6 font-sans">
-      <div className="w-full max-w-lg bg-neutral-900/50 border border-neutral-800 rounded-xl p-8 space-y-8">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-6 font-sans relative">
+      
+      {/* เพิ่มปุ่ม Sign Out ตรงมุมขวาบนของจอ */}
+      <button
+        onClick={handleSignOut}
+        className="absolute top-6 right-6 text-xs text-neutral-500 hover:text-red-400 font-mono transition-colors border border-transparent hover:border-red-900/50 bg-neutral-900/30 hover:bg-neutral-900/80 px-3 py-1.5 rounded-md"
+      >
+        Sign Out
+      </button>
+
+      <div className="w-full max-w-lg bg-neutral-900/50 border border-neutral-800 rounded-xl p-8 space-y-8 mt-8 md:mt-0">
         
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-white tracking-tight">
@@ -124,7 +133,6 @@ export default function OnboardingPage() {
 
         <form onSubmit={handleOnboardingSubmit} className="space-y-5">
           
-          {/* Newsletter Name */}
           <div>
             <label className="block text-sm font-medium text-neutral-300 mb-1">
               Newsletter / Project Name <span className="text-red-400">*</span>
@@ -140,7 +148,6 @@ export default function OnboardingPage() {
             />
           </div>
 
-          {/* URL Slug */}
           <div>
             <label className="block text-sm font-medium text-neutral-300 mb-1">
               Custom Booking URL <span className="text-red-400">*</span>
@@ -161,7 +168,6 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Tagline */}
           <div>
             <label className="block text-sm font-medium text-neutral-300 mb-1">
               Tagline (Optional)
