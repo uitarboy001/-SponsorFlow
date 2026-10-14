@@ -252,7 +252,7 @@ export default function LandingPage() {
       <footer className="border-t border-neutral-900 py-8 text-xs text-neutral-500 font-mono">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            © {new Date().getFullYear()} SponsorFlow. Built with Next.js, Supabase & Stripe.
+            © 2026 SponsorFlow. Built with Next.js, Supabase & Stripe.
           </div>
           <div className="flex gap-6">
             <Link href="/the-tech-horizon" className="hover:text-neutral-300 transition-colors">
