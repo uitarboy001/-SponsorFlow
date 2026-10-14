@@ -35,14 +35,18 @@ export async function POST(req: Request) {
     const metadata = session.metadata;
 
     if (metadata?.slotId) {
-      // ใช้ .from('slots')
-      await supabaseAdmin
+      // 1. อัปเดตสล็อต
+      const { error: updateError } = await supabaseAdmin
         .from('slots')
         .update({ status: 'booked' })
         .eq('id', metadata.slotId);
+      
+      if (updateError) {
+        console.error('❌ Update Slot Error:', updateError);
+      }
 
-      // ใช้ .from('bookings') และชื่อฟิลด์ ad_body
-      await supabaseAdmin.from('bookings').insert({
+      // 2. บันทึกข้อมูลการจอง
+      const { error: insertError } = await supabaseAdmin.from('bookings').insert({
         slot_id: metadata.slotId,
         creator_id: metadata.creatorId,
         sponsor_name: metadata.sponsorName,
@@ -53,6 +57,12 @@ export async function POST(req: Request) {
         amount_paid_usd: (session.amount_total || 0) / 100,
         stripe_session_id: session.id,
       });
+
+      if (insertError) {
+        console.error('❌ Insert Booking Error:', insertError);
+      } else {
+        console.log('✅ Booking inserted successfully!');
+      }
     }
   }
 
