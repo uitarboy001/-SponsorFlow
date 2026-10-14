@@ -41,13 +41,23 @@ export default function DashboardPage() {
   const [newPrice, setNewPrice] = useState('250');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ----------------------------------------------------
+  // เพิ่ม State สำหรับฟอร์ม Edit Profile
+  // ----------------------------------------------------
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editTagline, setEditTagline] = useState('');
+  const [editSubs, setEditSubs] = useState<number | string>(0);
+  const [editOpenRate, setEditOpenRate] = useState<number | string>(0);
+  const [editAudience, setEditAudience] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
   useEffect(() => {
     checkAuthAndFetchData();
   }, []);
 
   async function checkAuthAndFetchData() {
     setLoading(true);
-    // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
@@ -56,28 +66,30 @@ export default function DashboardPage() {
     }
 
     setUserEmail(session.user.email || null);
-    // ส่ง User ID ไปให้ฟังก์ชันดึงข้อมูล เพื่อให้มันดึงเฉพาะข้อมูลของบัญชีนี้
     await fetchDashboardData(session.user.id);
   }
 
-  // รับค่า userId เข้ามาเพื่อดึงข้อมูลแบบ Multi-tenant
   async function fetchDashboardData(userId: string) {
     try {
-      // 1. Fetch Creator details โดยใช้ userId
       const { data: creatorData } = await supabase
         .from('creators')
         .select('*')
-        .eq('id', userId) // <--- แก้ไขจุดนี้: เลิกใช้คำว่า 'the-tech-horizon'
+        .eq('id', userId)
         .single();
 
       if (!creatorData) {
-        // ถ้าหาโปรไฟล์ไม่เจอ ให้เด้งไปหน้า Onboarding
         router.replace('/onboarding');
         return;
       }
       setCreator(creatorData);
 
-      // 2. Fetch all Slots (ดึงเฉพาะสล็อตของครีเอเตอร์คนนี้)
+      // ดึงข้อมูลเดิมมาใส่ฟอร์ม Edit Profile เตรียมไว้
+      setEditName(creatorData.newsletter_name || '');
+      setEditTagline(creatorData.tagline || '');
+      setEditSubs(creatorData.subscriber_count || 0);
+      setEditOpenRate(creatorData.avg_open_rate || 0);
+      setEditAudience(creatorData.audience_tags?.[0] || '');
+
       const { data: slotsData } = await supabase
         .from('slots')
         .select('*')
@@ -86,7 +98,6 @@ export default function DashboardPage() {
 
       setSlots(slotsData || []);
 
-      // 3. Fetch Bookings with Slot information (ดึงเฉพาะยอดจองของครีเอเตอร์คนนี้)
       const { data: bookingsData } = await supabase
         .from('bookings')
         .select('*, slots(issue_date, issue_topic)')
@@ -103,10 +114,43 @@ export default function DashboardPage() {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    router.replace('/login');
+    window.location.href = '/login';
   }
 
-  // Handle Slot Creation
+  // ----------------------------------------------------
+  // ฟังก์ชันกดเซฟอัปเดต Profile
+  // ----------------------------------------------------
+  async function handleUpdateProfile(e: React.FormEvent) {
+    e.preventDefault();
+    setIsUpdatingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('creators')
+        .update({
+          newsletter_name: editName,
+          tagline: editTagline,
+          subscriber_count: parseInt(editSubs.toString()) || 0,
+          avg_open_rate: parseFloat(editOpenRate.toString()) || 0,
+          audience_tags: [editAudience] // เซฟเป็น Array
+        })
+        .eq('id', creator.id);
+
+      if (error) throw error;
+
+      alert('Profile updated successfully!');
+      setIsEditingProfile(false);
+      
+      // ดึงข้อมูลใหม่มาแสดงทันที
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) await fetchDashboardData(session.user.id);
+
+    } catch (err: any) {
+      alert(`Failed to update profile: ${err.message}`);
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  }
+
   async function handleCreateSlot(e: React.FormEvent) {
     e.preventDefault();
     if (!creator || !newDate || !newTopic) return;
@@ -127,7 +171,6 @@ export default function DashboardPage() {
       setNewTopic('');
       setNewPrice('250');
       
-      // ดึงข้อมูลใหม่หลังจากสร้างสล็อตเสร็จ
       const { data: { session } } = await supabase.auth.getSession();
       if (session) await fetchDashboardData(session.user.id);
       
@@ -139,31 +182,21 @@ export default function DashboardPage() {
     }
   }
 
-  // Toggle Slot Status (Available <-> Booked)
   async function handleToggleStatus(slotId: string, currentStatus: 'available' | 'booked') {
     const nextStatus = currentStatus === 'available' ? 'booked' : 'available';
     try {
-      const { error } = await supabase
-        .from('slots')
-        .update({ status: nextStatus })
-        .eq('id', slotId);
-
+      const { error } = await supabase.from('slots').update({ status: nextStatus }).eq('id', slotId);
       if (error) throw error;
-      setSlots((prev) =>
-        prev.map((s) => (s.id === slotId ? { ...s, status: nextStatus } : s))
-      );
+      setSlots((prev) => prev.map((s) => (s.id === slotId ? { ...s, status: nextStatus } : s)));
     } catch (err: any) {
       alert(`Failed to update status: ${err.message}`);
     }
   }
 
-  // Delete Slot
   async function handleDeleteSlot(slotId: string) {
     if (!confirm('Are you sure you want to delete this slot?')) return;
-
     try {
       const { error } = await supabase.from('slots').delete().eq('id', slotId);
-
       if (error) throw error;
       setSlots((prev) => prev.filter((s) => s.id !== slotId));
     } catch (err: any) {
@@ -171,7 +204,6 @@ export default function DashboardPage() {
     }
   }
 
-  // Summary Metrics
   const totalRevenue = bookings.reduce((sum, b) => sum + (b.amount_paid_usd || 0), 0);
   const bookedCount = slots.filter((s) => s.status === 'booked').length;
   const availableCount = slots.filter((s) => s.status === 'available').length;
@@ -186,7 +218,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans p-6 md:p-12">
-      <div className="max-w-6xl mx-auto space-y-10">
+      <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-neutral-800 pb-6 gap-4">
@@ -242,6 +274,68 @@ export default function DashboardPage() {
               {availableCount} <span className="text-sm font-normal text-neutral-500">issues</span>
             </p>
           </div>
+        </div>
+
+        {/* ------------------------------------------------------- */}
+        {/* SECTION ใหม่: Profile & Media Kit Settings               */}
+        {/* ------------------------------------------------------- */}
+        <div className="bg-neutral-900/40 border border-neutral-800 p-6 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-base font-semibold text-white">Media Kit & Profile Settings</h2>
+            <button
+              onClick={() => setIsEditingProfile(!isEditingProfile)}
+              className="text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-200 px-3 py-1.5 rounded transition-colors font-mono"
+            >
+              {isEditingProfile ? 'Cancel' : 'Edit Profile ✎'}
+            </button>
+          </div>
+
+          {isEditingProfile ? (
+            <form onSubmit={handleUpdateProfile} className="space-y-4 text-sm mt-4 border-t border-neutral-800 pt-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-1 font-mono">Newsletter Name</label>
+                  <input type="text" required value={editName} onChange={e => setEditName(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-white focus:outline-none focus:border-neutral-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-1 font-mono">Tagline</label>
+                  <input type="text" value={editTagline} onChange={e => setEditTagline(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-white focus:outline-none focus:border-neutral-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-1 font-mono">Subscribers Count</label>
+                  <input type="number" required value={editSubs} onChange={e => setEditSubs(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-white focus:outline-none focus:border-neutral-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-1 font-mono">Avg Open Rate (%)</label>
+                  <input type="number" step="0.1" required value={editOpenRate} onChange={e => setEditOpenRate(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-white focus:outline-none focus:border-neutral-500" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs text-neutral-400 mb-1 font-mono">Primary Audience (e.g. Founders, Gamers, SaaS)</label>
+                  <input type="text" placeholder="e.g. SaaS Founders" required value={editAudience} onChange={e => setEditAudience(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-white focus:outline-none focus:border-neutral-500" />
+                </div>
+              </div>
+              <div className="flex justify-end pt-2">
+                <button type="submit" disabled={isUpdatingProfile} className="bg-emerald-500 hover:bg-emerald-400 text-black font-semibold py-2 px-6 rounded transition-colors disabled:opacity-50 text-xs shadow-lg shadow-emerald-900/20">
+                  {isUpdatingProfile ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm bg-neutral-950/50 p-4 rounded-lg border border-neutral-800/50">
+              <div>
+                <span className="block text-xs text-neutral-500 font-mono mb-1">Subscribers</span>
+                <span className="font-medium text-white">{creator?.subscriber_count?.toLocaleString() || 0}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-neutral-500 font-mono mb-1">Open Rate</span>
+                <span className="font-medium text-emerald-400">{creator?.avg_open_rate || 0}%</span>
+              </div>
+              <div className="col-span-2">
+                <span className="block text-xs text-neutral-500 font-mono mb-1">Audience</span>
+                <span className="font-medium text-white">{creator?.audience_tags?.[0] || 'General'}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Section: Create Slot & Slot Management */}
@@ -313,7 +407,6 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2.5 self-end sm:self-auto">
                       <span className="font-mono text-neutral-300 font-semibold mr-1">${slot.price_usd}</span>
                       
-                      {/* Status Badge & Toggle Button */}
                       <button
                         onClick={() => handleToggleStatus(slot.id, slot.status)}
                         title="Click to toggle status"
@@ -326,7 +419,6 @@ export default function DashboardPage() {
                         {slot.status === 'booked' ? 'Booked' : 'Available'}
                       </button>
 
-                      {/* Delete Slot Button */}
                       <button
                         onClick={() => handleDeleteSlot(slot.id)}
                         className="text-xs text-neutral-500 hover:text-red-400 hover:bg-neutral-800 p-1.5 rounded transition-colors font-mono"
@@ -371,7 +463,6 @@ export default function DashboardPage() {
                       </p>
                     </div>
 
-                    {/* Creative Preview */}
                     <div className="bg-neutral-900/70 p-3 rounded border border-neutral-800 mt-2 space-y-1">
                       <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">Ad Copy:</p>
                       <h4 className="font-semibold text-white text-sm">{booking.ad_headline}</h4>
