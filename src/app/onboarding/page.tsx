@@ -30,8 +30,13 @@ export default function OnboardingPage() {
     const rawValue = e.target.value;
     const formattedSlug = rawValue
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, ''); 
+      // อนุญาตให้พิมพ์ a-z, 0-9 และขีดกลาง (-) ได้ ตัวอื่นแปลงเป็นขีดกลางให้หมด
+      .replace(/[^a-z0-9\-]+/g, '-') 
+      // ป้องกันการพิมพ์ขีดกลางเบิ้ลติดกันหลายตัว (เช่น my---url จะถูกยุบเหลือ my-url)
+      .replace(/-+/g, '-') 
+      // ห้ามมีขีดกลางโผล่มาเป็นตัวแรกสุด (แต่ปล่อยให้พิมพ์ตัวท้ายสุดได้ จะได้ไม่ขัดใจตอนพิมพ์)
+      .replace(/^-+/, ''); 
+
     setSlug(formattedSlug);
   };
 
