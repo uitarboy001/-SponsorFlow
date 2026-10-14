@@ -49,14 +49,25 @@ export default function LoginPage() {
         if (!data.session) {
           const signInRes = await supabase.auth.signInWithPassword({ email, password });
           if (signInRes.error) throw signInRes.error;
-          await checkProfileAndRedirect(signInRes.data.user.id);
+          
+          // เช็คก่อนว่ามี user ไหม แล้วค่อยดึง id
+          if (signInRes.data?.user?.id) {
+            await checkProfileAndRedirect(signInRes.data.user.id);
+          }
         } else {
-          await checkProfileAndRedirect(data.user.id);
+          // เช็คก่อนว่ามี user ไหม แล้วค่อยดึง id
+          if (data?.user?.id) {
+            await checkProfileAndRedirect(data.user.id);
+          }
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        await checkProfileAndRedirect(data.user.id);
+        
+        // เช็คก่อนว่ามี user ไหม แล้วค่อยดึง id
+        if (data?.user?.id) {
+          await checkProfileAndRedirect(data.user.id);
+        }
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Authentication failed.');
@@ -64,7 +75,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   }
-
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-6 font-sans">
       <div className="w-full max-w-sm bg-neutral-900/50 border border-neutral-800 rounded-xl p-8 space-y-6">
