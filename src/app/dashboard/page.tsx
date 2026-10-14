@@ -20,7 +20,7 @@ interface Booking {
   ad_body: string;
   ad_target_url: string;
   amount_paid_usd: number;
-  created_at: string;
+  paid_at: string;
   slots?: {
     issue_date: string;
     issue_topic: string;
@@ -80,12 +80,13 @@ export default function DashboardPage() {
 
       setSlots(slotsData || []);
 
+      
       // 3. Fetch Bookings with Slot information
       const { data: bookingsData } = await supabase
         .from('bookings')
         .select('*, slots(issue_date, issue_topic)')
         .eq('creator_id', creatorData.id)
-        .order('created_at', { ascending: false });
+        .order('paid_at', { ascending: false }); // แก้เป็น paid_at
 
       setBookings(bookingsData || []);
     } catch (err) {
