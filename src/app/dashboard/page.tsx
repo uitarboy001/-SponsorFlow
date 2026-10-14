@@ -56,22 +56,28 @@ export default function DashboardPage() {
     }
 
     setUserEmail(session.user.email || null);
-    await fetchDashboardData();
+    // ส่ง User ID ไปให้ฟังก์ชันดึงข้อมูล เพื่อให้มันดึงเฉพาะข้อมูลของบัญชีนี้
+    await fetchDashboardData(session.user.id);
   }
 
-  async function fetchDashboardData() {
+  // รับค่า userId เข้ามาเพื่อดึงข้อมูลแบบ Multi-tenant
+  async function fetchDashboardData(userId: string) {
     try {
-      // 1. Fetch Creator details
+      // 1. Fetch Creator details โดยใช้ userId
       const { data: creatorData } = await supabase
         .from('creators')
         .select('*')
-        .eq('slug', 'the-tech-horizon')
+        .eq('id', userId) // <--- แก้ไขจุดนี้: เลิกใช้คำว่า 'the-tech-horizon'
         .single();
 
-      if (!creatorData) return;
+      if (!creatorData) {
+        // ถ้าหาโปรไฟล์ไม่เจอ ให้เด้งไปหน้า Onboarding
+        router.replace('/onboarding');
+        return;
+      }
       setCreator(creatorData);
 
-      // 2. Fetch all Slots
+      // 2. Fetch all Slots (ดึงเฉพาะสล็อตของครีเอเตอร์คนนี้)
       const { data: slotsData } = await supabase
         .from('slots')
         .select('*')
@@ -80,13 +86,12 @@ export default function DashboardPage() {
 
       setSlots(slotsData || []);
 
-      
-      // 3. Fetch Bookings with Slot information
+      // 3. Fetch Bookings with Slot information (ดึงเฉพาะยอดจองของครีเอเตอร์คนนี้)
       const { data: bookingsData } = await supabase
         .from('bookings')
         .select('*, slots(issue_date, issue_topic)')
         .eq('creator_id', creatorData.id)
-        .order('paid_at', { ascending: false }); // แก้เป็น paid_at
+        .order('paid_at', { ascending: false });
 
       setBookings(bookingsData || []);
     } catch (err) {
@@ -121,7 +126,11 @@ export default function DashboardPage() {
       setNewDate('');
       setNewTopic('');
       setNewPrice('250');
-      await fetchDashboardData();
+      
+      // ดึงข้อมูลใหม่หลังจากสร้างสล็อตเสร็จ
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) await fetchDashboardData(session.user.id);
+      
       alert('Slot created successfully!');
     } catch (err: any) {
       alert(`Failed to create slot: ${err.message}`);
