@@ -40,10 +40,6 @@ export async function POST(req: Request) {
         .from('slots')
         .update({ status: 'booked' })
         .eq('id', metadata.slotId);
-      
-      if (updateError) {
-        console.error('❌ Update Slot Error:', updateError);
-      }
 
       // 2. บันทึกข้อมูลการจอง
       const { error: insertError } = await supabaseAdmin.from('bookings').insert({
@@ -54,14 +50,18 @@ export async function POST(req: Request) {
         ad_headline: metadata.adHeadline,
         ad_body: metadata.adBody,
         ad_target_url: metadata.adTargetUrl,
+        // เพิ่มบรรทัดนี้ลงไป: เผื่อไม่ได้อัปโหลดรูป ให้ส่งเป็น String ว่าง จะได้ไม่โดน DB เตะทิ้ง
+        ad_image_url: metadata.adImageUrl || '', 
         amount_paid_usd: (session.amount_total || 0) / 100,
         stripe_session_id: session.id,
       });
 
+      // ท่าไม้ตาย: ถ้า Insert พลาด ให้โยน Error กลับไปหา Stripe เลย!
       if (insertError) {
-        console.error('❌ Insert Booking Error:', insertError);
-      } else {
-        console.log('✅ Booking inserted successfully!');
+        return NextResponse.json(
+          { error: 'DB Insert Error', details: insertError }, 
+          { status: 400 } // ส่งสถานะ 400 เพื่อให้ Stripe ขึ้นแถบสีแดง (Failed)
+        );
       }
     }
   }
