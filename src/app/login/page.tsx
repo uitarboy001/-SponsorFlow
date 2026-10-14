@@ -10,32 +10,57 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false); // เพิ่ม State สำหรับสลับโหมด Sign In / Sign Up
 
-  // If already logged in, redirect straight to dashboard
+  // เช็คตอนเปิดหน้าเว็บ ถ้าล็อกอินอยู่แล้ว ให้ตรวจสอบว่ามี Profile ไหม
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        router.replace('/dashboard');
+        checkProfileAndRedirect(session.user.id);
       }
     });
   }, [router]);
 
-  async function handleLogin(e: React.FormEvent) {
+  // ฟังก์ชันแยกทาง: ไป Dashboard หรือ Onboarding?
+  async function checkProfileAndRedirect(userId: string) {
+    const { data: creator } = await supabase
+      .from('creators')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (creator) {
+      router.replace('/dashboard'); // มีข้อมูลแล้ว ไปจัดการสล็อตได้เลย
+    } else {
+      router.replace('/onboarding'); // ยังไม่มีข้อมูล ไปตั้งชื่อ Slug ก่อน
+    }
+  }
+
+  async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     setErrorMsg('');
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      let authResult;
+      
+      if (isSignUp) {
+        // สมัครสมาชิกใหม่
+        authResult = await supabase.auth.signUp({ email, password });
+      } else {
+        // ล็อกอินปกติ
+        authResult = await supabase.auth.signInWithPassword({ email, password });
+      }
 
-      if (error) throw error;
+      if (authResult.error) throw authResult.error;
 
-      router.push('/dashboard');
+      // ถ้าสำเร็จ ให้เช็คโปรไฟล์ต่อ
+      if (authResult.data.user) {
+        await checkProfileAndRedirect(authResult.data.user.id);
+      }
+
     } catch (err: any) {
-      setErrorMsg(err.message || 'Invalid login credentials.');
+      setErrorMsg(err.message || 'Authentication failed.');
     } finally {
       setLoading(false);
     }
@@ -50,10 +75,12 @@ export default function LoginPage() {
             SponsorFlow
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            Creator Sign In
+            {isSignUp ? 'Create an Account' : 'Creator Sign In'}
           </h1>
           <p className="text-xs text-neutral-400">
-            Enter your credentials to manage your newsletter slots.
+            {isSignUp 
+              ? 'Start monetizing your newsletter today.' 
+              : 'Enter your credentials to manage your newsletter slots.'}
           </p>
         </div>
 
@@ -63,7 +90,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4 text-sm">
+        <form onSubmit={handleAuth} className="space-y-4 text-sm">
           <div>
             <label className="block text-xs text-neutral-400 mb-1 font-mono">
               Email Address
@@ -97,9 +124,19 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-white hover:bg-neutral-200 text-black font-semibold py-2.5 rounded-md transition-colors disabled:opacity-50 mt-2"
           >
-            {loading ? 'Signing in...' : 'Sign In →'}
+            {loading ? 'Processing...' : (isSignUp ? 'Sign Up →' : 'Sign In →')}
           </button>
         </form>
+
+        {/* ปุ่มสลับโหมด */}
+        <div className="text-center mt-4">
+          <button 
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-xs text-neutral-400 hover:text-white transition-colors"
+          >
+            {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+          </button>
+        </div>
 
       </div>
     </div>
