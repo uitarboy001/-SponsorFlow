@@ -42,7 +42,7 @@ export default function DashboardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ----------------------------------------------------
-  // เพิ่ม State สำหรับฟอร์ม Edit Profile
+  // State สำหรับฟอร์ม Edit Profile (เพิ่ม Image URL)
   // ----------------------------------------------------
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const [editSubs, setEditSubs] = useState<number | string>(0);
   const [editOpenRate, setEditOpenRate] = useState<number | string>(0);
   const [editAudience, setEditAudience] = useState('');
+  const [editImageUrl, setEditImageUrl] = useState(''); // <--- เพิ่มตรงนี้
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   useEffect(() => {
@@ -89,6 +90,7 @@ export default function DashboardPage() {
       setEditSubs(creatorData.subscriber_count || 0);
       setEditOpenRate(creatorData.avg_open_rate || 0);
       setEditAudience(creatorData.audience_tags?.[0] || '');
+      setEditImageUrl(creatorData.image_url || ''); // <--- เพิ่มตรงนี้
 
       const { data: slotsData } = await supabase
         .from('slots')
@@ -117,9 +119,6 @@ export default function DashboardPage() {
     window.location.href = '/login';
   }
 
-  // ----------------------------------------------------
-  // ฟังก์ชันกดเซฟอัปเดต Profile
-  // ----------------------------------------------------
   async function handleUpdateProfile(e: React.FormEvent) {
     e.preventDefault();
     setIsUpdatingProfile(true);
@@ -131,7 +130,8 @@ export default function DashboardPage() {
           tagline: editTagline,
           subscriber_count: parseInt(editSubs.toString()) || 0,
           avg_open_rate: parseFloat(editOpenRate.toString()) || 0,
-          audience_tags: [editAudience] // เซฟเป็น Array
+          audience_tags: [editAudience],
+          image_url: editImageUrl // <--- อัปเดตลงฐานข้อมูล
         })
         .eq('id', creator.id);
 
@@ -140,7 +140,6 @@ export default function DashboardPage() {
       alert('Profile updated successfully!');
       setIsEditingProfile(false);
       
-      // ดึงข้อมูลใหม่มาแสดงทันที
       const { data: { session } } = await supabase.auth.getSession();
       if (session) await fetchDashboardData(session.user.id);
 
@@ -222,13 +221,23 @@ export default function DashboardPage() {
         
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-neutral-800 pb-6 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">
-              {creator?.newsletter_name || 'Creator'} — Dashboard
-            </h1>
-            <p className="text-sm text-neutral-400 mt-1">
-              Manage newsletter inventory, review ad creatives, and track sponsorship revenue.
-            </p>
+          <div className="flex items-center gap-4">
+            {/* แสดงรูปโปรไฟล์ใน Dashboard เล็กๆ */}
+            {creator?.image_url ? (
+              <img src={creator.image_url} alt="Profile" className="w-12 h-12 rounded-full object-cover border border-neutral-700" />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center text-lg font-bold">
+                {creator?.newsletter_name?.charAt(0) || 'C'}
+              </div>
+            )}
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white">
+                {creator?.newsletter_name || 'Creator'} — Dashboard
+              </h1>
+              <p className="text-sm text-neutral-400 mt-1">
+                Manage newsletter inventory, review ad creatives, and track sponsorship revenue.
+              </p>
+            </div>
           </div>
           
           <div className="flex items-center gap-3 self-start md:self-auto">
@@ -276,9 +285,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ------------------------------------------------------- */}
-        {/* SECTION ใหม่: Profile & Media Kit Settings               */}
-        {/* ------------------------------------------------------- */}
+        {/* SECTION: Profile & Media Kit Settings */}
         <div className="bg-neutral-900/40 border border-neutral-800 p-6 rounded-lg">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-base font-semibold text-white">Media Kit & Profile Settings</h2>
@@ -298,6 +305,10 @@ export default function DashboardPage() {
                   <input type="text" required value={editName} onChange={e => setEditName(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-white focus:outline-none focus:border-neutral-500" />
                 </div>
                 <div>
+                  <label className="block text-xs text-neutral-400 mb-1 font-mono">Profile Image URL (Optional)</label>
+                  <input type="url" placeholder="https://example.com/my-pic.jpg" value={editImageUrl} onChange={e => setEditImageUrl(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-white focus:outline-none focus:border-neutral-500" />
+                </div>
+                <div className="md:col-span-2">
                   <label className="block text-xs text-neutral-400 mb-1 font-mono">Tagline</label>
                   <input type="text" value={editTagline} onChange={e => setEditTagline(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-white focus:outline-none focus:border-neutral-500" />
                 </div>
