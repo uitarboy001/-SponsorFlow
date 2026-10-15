@@ -126,17 +126,33 @@ function BookingContent() {
           {/* LEFT COLUMN: Profile & Preview */}
           <div className="lg:col-span-5 space-y-12 lg:sticky lg:top-28">
             
-            {creator.image_url ? (
-    <img 
-      src={creator.image_url} 
-      alt={creator.newsletter_name} 
-      className="w-24 h-24 rounded-3xl shadow-sm object-cover mb-6 border border-slate-200"
-    />
-  ) : (
-    <div className="w-16 h-16 bg-slate-900 text-white rounded-2xl shadow-sm flex items-center justify-center text-2xl font-serif mb-6">
-      {creator.newsletter_name.charAt(0)}
-    </div>
-  )}
+            {/* Profile Info (Flexbox: รูปและชื่ออยู่ข้างกัน) */}
+            <div className="flex flex-row items-center gap-5 lg:gap-6 mb-8">
+              {/* Profile Image (ขยายขนาดเป็น w-24 h-24) */}
+              <div className="flex-shrink-0">
+                {creator.image_url ? (
+                  <img 
+                    src={creator.image_url} 
+                    alt={creator.newsletter_name} 
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl shadow-sm object-cover border border-slate-200 bg-white"
+                  />
+                ) : (
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-slate-900 text-white rounded-3xl shadow-sm flex items-center justify-center text-3xl sm:text-4xl font-serif border border-slate-200">
+                    {creator.newsletter_name.charAt(0)}
+                  </div>
+                )}
+              </div>
+              
+              {/* Name & Tagline */}
+              <div>
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-slate-900 tracking-tight leading-tight line-clamp-2">
+                  {creator.newsletter_name}
+                </h1>
+                <p className="text-slate-500 text-sm sm:text-base mt-2 leading-relaxed line-clamp-2">
+                  {creator.tagline}
+                </p>
+              </div>
+            </div>
 
             {/* Subtle Metrics */}
             <div className="grid grid-cols-2 gap-3">
@@ -183,15 +199,18 @@ function BookingContent() {
                     <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-2">
                       Sponsored
                     </div>
-                    <div className="font-bold text-slate-900 text-lg leading-snug">
+                    {/* เติม break-words */}
+                    <div className="font-bold text-slate-900 text-lg leading-snug break-words">
                       {headline || 'Your Compelling Headline Goes Here'}
                     </div>
-                    <p className="text-slate-600 text-sm mt-2 leading-relaxed">
+                    {/* เติม break-words whitespace-pre-wrap */}
+                    <p className="text-slate-600 text-sm mt-2 leading-relaxed break-words whitespace-pre-wrap">
                       {bodyText || 'This is where your ad body copy will render inside the actual newsletter email. Make it engaging!'}
                     </p>
                     <div className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-                      <span>{targetUrl || 'yourwebsite.com'}</span>
-                      <ExternalLink className="w-3 h-3" />
+                      {/* เติม break-all line-clamp-1 ป้องกัน URL ทะลุ */}
+                      <span className="break-all line-clamp-1">{targetUrl || 'yourwebsite.com'}</span>
+                      <ExternalLink className="w-3 h-3 flex-shrink-0" />
                     </div>
                   </div>
                 </div>
