@@ -130,7 +130,7 @@ function BookingContent() {
     <img 
       src={creator.image_url} 
       alt={creator.newsletter_name} 
-      className="w-16 h-16 rounded-2xl shadow-sm object-cover mb-6 border border-slate-200"
+      className="w-24 h-24 rounded-3xl shadow-sm object-cover mb-6 border border-slate-200"
     />
   ) : (
     <div className="w-16 h-16 bg-slate-900 text-white rounded-2xl shadow-sm flex items-center justify-center text-2xl font-serif mb-6">
