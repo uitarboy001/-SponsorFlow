@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Analytics } from "@vercel/analytics/react"; // 1. นำเข้า Vercel Analytics
+import { Analytics } from "@vercel/analytics/react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,11 +14,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SponsorFlow", // เปลี่ยนชื่อ Title เว็บ
+  title: "SponsorFlow",
   description: "Self-serve sponsorship platform for creators",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+// ใช้ Readonly<{ children: React.ReactNode }> แทน LayoutProps เพื่อความชัวร์
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html
       lang="en"
@@ -26,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <Analytics /> {/* 2. ฝัง Analytics ไว้ด้านล่างสุดของ body */}
+        <Analytics />
       </body>
     </html>
   );
